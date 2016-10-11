@@ -1,6 +1,6 @@
 var express = require('express');
 var formidable = require('formidable');
-var app = express();
+var app = express(); 
 // installing handlebars
 var handlebars = require('express-handlebars').create({
     defaultLayout: 'main',
