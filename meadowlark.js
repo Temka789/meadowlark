@@ -1,6 +1,6 @@
 var express = require('express');
 var formidable = require('formidable');
-var app = express(); 
+var app = express();
 // installing handlebars
 var handlebars = require('express-handlebars').create({
     defaultLayout: 'main',
@@ -13,6 +13,9 @@ var handlebars = require('express-handlebars').create({
     }
   });
 
+var fortune = require('./lib/fortune.js');
+var weather = require('./lib/weather.js');
+
 var jqupload = require('jquery-file-upload-middleware');
 var credentials = require('./credentials');
 app.use(require('cookie-parser')(credentials.cookieSecret));
@@ -22,9 +25,21 @@ app.use(require('express-session')({
   secret: credentials.cookieSecret
 }));
 
+var nodemailer = require('nodemailer'),
+  mailTransport = nodemailer.createTransport('SMTP', {
+    service: 'Gmail',
+    auth: {
+      user: credentials.gmail.user,
+      pass: credentials.gmail.password
+    }
+  });
+app.use(function(req,res,next){
+  // если имеется экстренное сообщение, переместим его в контекст, а затем удалим
+  res.locals.flash = req.session.flash;
+  delete req.session.flash;
+  next();
+});
 
-var fortune = require('./lib/fortune.js');
-var weather = require('./lib/weather.js');
 
 app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
