@@ -1,6 +1,29 @@
 var express = require('express');
 var formidable = require('formidable');
 var app = express();
+
+switch (app.get('env')){
+  case 'development':
+    // сжатое многоцветное журналирование для
+    // разработки
+    app.use(require('morgan')('dev'));
+    break;
+  case 'production':
+    // модуль 'express-logger' поддерживает ежедневное
+    // чередование файлов журналов
+    app.use(require('express-logger')({
+      path: __dirname + '/log/requests.log'
+    }));
+    break;
+}
+
+app.use(function(req,res,next){
+  var cluster = require('cluster');
+  // console.log(cluster);
+  if(cluster.isWorker) console.log('Исполнитель %d получил запрос', cluster.worker.id);
+  next();
+});
+
 // installing handlebars
 var handlebars = require('express-handlebars').create({
     defaultLayout: 'main',
@@ -29,8 +52,11 @@ var VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@' +
   '[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?' +
   '(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
 
-var emailService = require('./lib/email.js')(credentials);
-emailService.send('jeostcustomer@gmail.com', 'Сегодня распродажа туров по реке Худ!', 'Налетайте на них, пока не остыли!');
+var emailService = require('./lib/ema' +
+  'il.js')(credentials);
+// emailService.send('jeostcustomer@gmail.com', 'Сегодня распродажа туров по реке Худ!', 'Налетайте на них, пока не остыли!');
+
+
 app.use(function(req,res,next){
   // если имеется экстренное сообщение, переместим его в контекст, а затем удалим
   res.locals.flash = req.session.flash;
@@ -220,7 +246,21 @@ app.use(function(err, req, res, next){
 });
 
 
+function startServer(){
+  app.listen(app.get('port'), function(){
+    console.log('Express запущено в режиме ' + app.get('env') +
+      ' на http://localhost:' + app.get('port') +
+      '; нажмите Ctrl+C для завершения.');
+  });
+}
 
-app.listen(app.get('port'), function(){
-  console.log('Express is runing on http://localhost:' + app.get('port') + '; press Ctrl+C to stop');
-});
+if(require.main === module){
+  // Приложение запускается непосредственно;
+  // запускаем сервер приложения
+  startServer();
+}else{
+  // Приложение импортируется как модуль
+  // посредством "require":
+  // экспортируем функцию для создания сервера
+  module.exports = startServer;
+}
