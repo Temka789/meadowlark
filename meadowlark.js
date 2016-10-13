@@ -25,6 +25,10 @@ app.use(require('express-session')({
   secret: credentials.cookieSecret
 }));
 
+var VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@' +
+  '[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?' +
+  '(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
+
 var nodemailer = require('nodemailer'),
   mailTransport = nodemailer.createTransport('SMTP', {
     service: 'Gmail',
@@ -172,6 +176,42 @@ app.use('/upload', function(req, res, next){
     }
   })(req, res, next)
 });
+// sending a mail
+app.post('/cart/checkout', function(req, res){
+  var cart = req.session.cart;
+  if(!cart) next(new Error('Корзина не существует.'));
+  var name = req.body.name || '', email = req.body.email || '';
+// Проверка вводимых данных
+  if(!email.match(VALID_EMAIL_REGEX))
+    return res.next(new Error('Некорректный адрес электронной почты.'));
+// Присваиваем случайный идентификатор корзины;
+// При обычных условиях мы бы использовали
+// здесь идентификатор из БД
+  cart.number = Math.random().toString().replace(/^0\.0*/, '');
+  cart.billing = {
+    name: name,
+    email: email
+  };
+  res.render( 'email/cart-thank-you',
+    { layout: null, cart: cart },
+    function(err,html){
+      if( err ) console.log('ошибка в шаблоне письма');
+      mailTransport.sendMail({
+        from: '"Meadowlark Travel": info@meadowlarktravel.com',
+        to: cart.billing.email,
+        subject: 'Спасибо за заказ поездки в Meadowlark',
+        html: html,
+        generateTextFromHtml: true
+    }, function(err){
+        if(err) console.error('Не могу отправить подтверждение: ' + err.stack);
+      });
+    }
+  );
+  res.render('cart-thank-you', { cart: cart });
+});
+// sending a mail -end
+
+
 // 404 page
 app.use(function(req, res, next){
   res.status(404);
