@@ -29,14 +29,8 @@ var VALID_EMAIL_REGEX = new RegExp('^[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@' +
   '[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?' +
   '(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$');
 
-var nodemailer = require('nodemailer'),
-  mailTransport = nodemailer.createTransport('SMTP', {
-    service: 'Gmail',
-    auth: {
-      user: credentials.gmail.user,
-      pass: credentials.gmail.password
-    }
-  });
+var emailService = require('./lib/email.js')(credentials);
+emailService.send('jeostcustomer@gmail.com', 'Сегодня распродажа туров по реке Худ!', 'Налетайте на них, пока не остыли!');
 app.use(function(req,res,next){
   // если имеется экстренное сообщение, переместим его в контекст, а затем удалим
   res.locals.flash = req.session.flash;
