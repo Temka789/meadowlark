@@ -17,7 +17,10 @@
     "express-session": "^1.14.1",
     "formidable": "^1.0.17",
     "jquery-file-upload-middleware": "^0.1.8",
+    "loadtest": "^2.0.4",
+    "mongoose": "^4.6.3",
     "morgan": "^1.7.0",
+    "mv": "^2.1.1",
     "nodemailer": "^2.6.4"
   },
   "devDependencies": {

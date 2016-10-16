@@ -1,6 +1,18 @@
-var express = require('express');
-var formidable = require('formidable');
-var app = express();
+var express = require('express'),
+  formidable = require('formidable'),
+  app = express(),
+  fs = require('fs'),
+  mv = require('mv'),
+  dataDir = __dirname + '/data',
+  vacationPhotoDir = dataDir + '/vacation-photo';
+
+fs.existsSync(dataDir) || fs.mkdirSync(dataDir);
+fs.existsSync(vacationPhotoDir) || fs.mkdirSync(vacationPhotoDir);
+
+function saveContestEntry(contestName, email, year, month, photoPath){
+  // todo will be added later
+}
+
 
 switch (app.get('env')){
   case 'development':
@@ -69,6 +81,51 @@ app.engine('handlebars', handlebars.engine);
 app.set('view engine', 'handlebars');
 app.set('port', process.env.PORT || 3000);
 
+
+// Домены
+app.use(function(req, res, next){
+  // создаем домен для этого хапроса
+  var domain = require('domain').create();
+  domain.on('error', function(err){
+    console.error('ПЕРЕХВАЧЕНА ОШИБКА ДОМЕНА\n', err.stack);
+    try {
+      // Отказобезопасный останов через 5 секунд
+      setTimeout(function(){
+        console.error(' Отказобезопасный останов.');
+        process.exit(1);
+      }, 5000);
+      // Отключение от кластера
+      var worker = require('cluster').worker;
+      if(worker) worker.disconnect();
+      // Прекращение принятия новых запросов
+      server.close();
+      try {
+        // Попытка использовать маршрутизацию
+        // ошибок Express
+        next(err);
+      } catch(err){
+        // Если маршрутизация ошибок Express не сработала,
+        // пробуем выдать текстовый ответ Node
+        console.error('Сбой механизма обработки ошибок ' +
+          'Express .\n', err.stack);
+        res.statusCode = 500;
+        res.setHeader('content-type', 'text/plain');
+        res.end('Ошибка сервера.');
+      }
+    } catch(err){
+      console.error('Не могу отправить ответ 500.\n', err.stack);
+    }
+  });
+  // Добавляем объекты запроса и ответа в домен
+  domain.add(req);
+  domain.add(res);
+  // Выполняем оставшуюся часть цепочки запроса в домене
+  domain.run(next);
+});
+
+// Здесь находятся другое промежуточное ПО и маршруты
+
+
 app.use(express.static(__dirname + '/public'));
 
 // разбор закодированного тела ($_POST)
@@ -79,6 +136,7 @@ app.use(function(req, res, next){
   res.locals.showTests = app.get('env') !== 'production' && req.query.test === '1';
   next();
 });
+
 
 app.use(function(req, res, next){
   if(!res.locals.partials) res.locals.partials = {};
@@ -176,13 +234,33 @@ app.get('/contest/vacation-photo', function(req, res){
 app.post('/contest/vacation-photo/:year/:month', function(req, res){
   var form = new formidable.IncomingForm();
   form.parse(req, function(err, fields, files){
-    if(err) return res.redirect(303, 'error');
-    console.log('received fields:');
-    console.log(fields);
-    console.log('received files:');
-    console.log(files);
-    res.redirect(303, '/thank-you')
-  })
+    if(err) {
+      res.session.flash = {
+        type: 'danger',
+        intro: 'Упс!',
+        message: 'Во время обработки отправленной Вами формы произошла ошибка. Пожалуйста, попробуйте еще раз.',
+    };
+      return res.redirect(303, '/contest/vacation-photo');
+    }
+    var photo = files.photo;
+    var dir = vacationPhotoDir + '/' + Date.now();
+    var path = dir + '/' + photo.name;
+    fs.mkdirSync(dir);
+
+    // mv(photo.path, dir + '/' + photo.name, function(err) {
+    //   if (err) { throw err; }
+    //   console.log('file moved successfully');
+    // });
+    fs.renameSync(photo.path, dir + '/' + photo.name);
+    saveContestEntry('vacation-photo', fields.email,
+      req.params.year, req.params.month, path);
+    req.session.flash = {
+      type: 'success',
+      intro: 'Удачи!',
+      message: 'Вы стали участником конкурса.'
+    };
+    return res.redirect(303, '/contest/vacation-photo/entries');
+  });
 });
 
 app.use('/upload', function(req, res, next){
@@ -231,6 +309,15 @@ app.post('/cart/checkout', function(req, res){
 });
 // sending a mail -end
 
+// тестируем ошибки
+app.get('/fail', function(req, res){
+  throw new Error('Нет!');
+});
+app.get('/epic-fail', function(req, res){
+  process.nextTick(function(){
+    throw new Error('Бабах!');
+  });
+});
 
 // 404 page
 app.use(function(req, res, next){
@@ -241,16 +328,22 @@ app.use(function(req, res, next){
 // users 500 page
 app.use(function(err, req, res, next){
   console.error(err.stack);
-  res.status(500);
-  res.render('500');
+  app.status(500).render('500');
 });
 
 
+
 function startServer(){
-  app.listen(app.get('port'), function(){
-    console.log('Express запущено в режиме ' + app.get('env') +
-      ' на http://localhost:' + app.get('port') +
-      '; нажмите Ctrl+C для завершения.');
+  // app.listen(app.get('port'), function(){
+  //   console.log('Express запущено в режиме ' + app.get('env') +
+  //     ' на http://localhost:' + app.get('port') +
+  //     '; нажмите Ctrl+C для завершения.');
+  // });
+
+
+
+  var server = app.listen(app.get('port'), function() {
+    console.log('Слушаю на порту %d.', app.get('port'));
   });
 }
 

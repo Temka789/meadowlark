@@ -24,7 +24,7 @@ if(cluster.isMaster){
     console.log('КЛАСТЕР: Исполнитель %d завершил работу' + ' с кодом завершения %d (%s)', worker.id, code, signal);
     startWorker();
   })
-}else{
+}else {
   // Запускаем наше приложение на исполнителе;
   // см. meadowlark.js
   require('./meadowlark.js')();
